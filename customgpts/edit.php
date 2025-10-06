@@ -124,28 +124,96 @@ header_html('Edit Custom GPT');
   
   <!-- Upload Form -->
   <div style="margin-top:24px;">
-    <h4>Upload New Document</h4>
-    <form method="post" action="/customgpt_documents/add_eval.php" enctype="multipart/form-data" class="stack">
+    <h4>Upload New Documents</h4>
+    <form method="post" action="/customgpt_documents/add_eval.php" enctype="multipart/form-data" class="stack" id="uploadForm">
       <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
       <input type="hidden" name="customgpt_id" value="<?=h($id)?>">
       
       <div class="stack">
-        <label>Select File
-          <input type="file" name="document_file" required accept=".txt,.md,.pdf,.doc,.docx,.csv,.json">
+        <label>Select Files (you can select multiple)
+          <input type="file" name="document_files[]" multiple required accept=".txt,.md,.pdf,.doc,.docx,.csv,.json" id="fileInput">
         </label>
         <small class="small">
-          Supported formats: TXT, MD, PDF, DOC, DOCX, CSV, JSON (Max: 10MB)
+          Supported formats: TXT, MD, PDF, DOC, DOCX, CSV, JSON (Max: 10MB per file)
         </small>
+        <div id="fileList" style="margin-top:12px;"></div>
       </div>
       
       <div class="actions">
-        <button class="primary" type="submit">Upload Document</button>
+        <button class="primary" type="submit" id="uploadButton">Upload Documents</button>
       </div>
     </form>
   </div>
 </div>
 
 <script>
+// Handle file input display
+document.addEventListener('DOMContentLoaded', function() {
+  var fileInput = document.getElementById('fileInput');
+  var fileList = document.getElementById('fileList');
+  var uploadButton = document.getElementById('uploadButton');
+  
+  if (fileInput && fileList) {
+    fileInput.addEventListener('change', function() {
+      var files = this.files;
+      var html = '';
+      var totalSize = 0;
+      var errors = [];
+      var maxSize = 10 * 1024 * 1024; // 10MB
+      
+      if (files.length === 0) {
+        fileList.innerHTML = '';
+        uploadButton.textContent = 'Upload Documents';
+        return;
+      }
+      
+      html += '<div style="padding:12px;background:#f5f5f5;border-radius:4px;">';
+      html += '<strong>' + files.length + ' file' + (files.length > 1 ? 's' : '') + ' selected:</strong>';
+      html += '<ul style="margin:8px 0 0 0;padding-left:20px;">';
+      
+      for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        var size = file.size;
+        totalSize += size;
+        var sizeStr = size < 1024 ? size + ' B' : 
+                     size < 1024*1024 ? Math.round(size/1024) + ' KB' : 
+                     Math.round(size/(1024*1024)*10)/10 + ' MB';
+        
+        html += '<li style="margin:4px 0;">';
+        html += '<strong>' + file.name + '</strong> (' + sizeStr + ')';
+        
+        // Validate file size
+        if (size > maxSize) {
+          html += ' <span style="color:red;">✗ Too large (max 10MB)</span>';
+          errors.push(file.name + ' exceeds 10MB limit');
+        } else {
+          html += ' <span style="color:green;">✓</span>';
+        }
+        html += '</li>';
+      }
+      
+      html += '</ul>';
+      
+      var totalSizeStr = totalSize < 1024*1024 ? Math.round(totalSize/1024) + ' KB' : 
+                        Math.round(totalSize/(1024*1024)*10)/10 + ' MB';
+      html += '<div style="margin-top:8px;"><strong>Total size:</strong> ' + totalSizeStr + '</div>';
+      
+      if (errors.length > 0) {
+        html += '<div style="margin-top:8px;color:red;"><strong>Errors:</strong><br>' + errors.join('<br>') + '</div>';
+        uploadButton.disabled = true;
+      } else {
+        uploadButton.disabled = false;
+      }
+      
+      html += '</div>';
+      fileList.innerHTML = html;
+      
+      // Update button text
+      uploadButton.textContent = 'Upload ' + files.length + ' Document' + (files.length > 1 ? 's' : '');
+    });
+  }
+});
+
 function confirmDelete() {
   if (confirm('Are you sure you want to delete this Custom GPT? This action cannot be undone.')) {
     var form = document.createElement('form');

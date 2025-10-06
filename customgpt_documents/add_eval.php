@@ -19,53 +19,79 @@ if ($customgptId <= 0) {
     exit;
 }
 
-// Validation
-$errors = [];
+$ctx = UserContext::getLoggedInUserContext();
+$maxSize = 10 * 1024 * 1024; // 10MB
 
-// Check if file was uploaded
-if (!isset($_FILES['document_file']) || $_FILES['document_file']['error'] !== UPLOAD_ERR_OK) {
-    $uploadError = $_FILES['document_file']['error'] ?? UPLOAD_ERR_NO_FILE;
-    switch ($uploadError) {
-        case UPLOAD_ERR_INI_SIZE:
-        case UPLOAD_ERR_FORM_SIZE:
-            $errors[] = 'File is too large. Maximum size is 10MB.';
-            break;
-        case UPLOAD_ERR_NO_FILE:
-            $errors[] = 'No file was uploaded.';
-            break;
-        default:
-            $errors[] = 'File upload failed.';
+// Handle multiple file uploads
+$successCount = 0;
+$failedFiles = [];
+$uploadedFiles = [];
+
+// Check if files were uploaded
+if (!isset($_FILES['document_files']) || !is_array($_FILES['document_files']['name'])) {
+    header('Location: /customgpts/edit.php?id=' . $customgptId . '&err=' . urlencode('No files were uploaded.'));
+    exit;
+}
+
+// Process each file
+$fileCount = count($_FILES['document_files']['name']);
+
+for ($i = 0; $i < $fileCount; $i++) {
+    // Extract file data for this specific file
+    $file = [
+        'name' => $_FILES['document_files']['name'][$i],
+        'type' => $_FILES['document_files']['type'][$i],
+        'tmp_name' => $_FILES['document_files']['tmp_name'][$i],
+        'error' => $_FILES['document_files']['error'][$i],
+        'size' => $_FILES['document_files']['size'][$i]
+    ];
+    
+    $fileName = $file['name'];
+    
+    // Check for upload errors
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        switch ($file['error']) {
+            case UPLOAD_ERR_INI_SIZE:
+            case UPLOAD_ERR_FORM_SIZE:
+                $failedFiles[] = "$fileName: File is too large (max 10MB)";
+                break;
+            case UPLOAD_ERR_NO_FILE:
+                $failedFiles[] = "$fileName: No file uploaded";
+                break;
+            default:
+                $failedFiles[] = "$fileName: Upload failed";
+        }
+        continue;
+    }
+    
+    // Validate file size
+    if ($file['size'] > $maxSize) {
+        $failedFiles[] = "$fileName: File exceeds 10MB limit";
+        continue;
+    }
+    
+    // Try to upload the file
+    try {
+        $documentId = CustomGPTDocumentManagement::createDocument($ctx, $customgptId, $file);
+        $successCount++;
+        $uploadedFiles[] = $fileName;
+    } catch (Exception $e) {
+        $failedFiles[] = "$fileName: " . $e->getMessage();
     }
 }
 
-// Validate file size (10MB max)
-if (empty($errors) && isset($_FILES['document_file']['size'])) {
-    $maxSize = 10 * 1024 * 1024; // 10MB
-    if ($_FILES['document_file']['size'] > $maxSize) {
-        $errors[] = 'File is too large. Maximum size is 10MB.';
-    }
+// Build result message
+if ($successCount > 0 && empty($failedFiles)) {
+    // All files succeeded
+    $msg = $successCount . ' document' . ($successCount > 1 ? 's' : '') . ' uploaded successfully.';
+    header('Location: /customgpts/edit.php?id=' . $customgptId . '&msg=' . urlencode($msg));
+} elseif ($successCount > 0 && !empty($failedFiles)) {
+    // Some succeeded, some failed
+    $msg = $successCount . ' document' . ($successCount > 1 ? 's' : '') . ' uploaded successfully. ' . count($failedFiles) . ' failed: ' . implode('; ', $failedFiles);
+    header('Location: /customgpts/edit.php?id=' . $customgptId . '&msg=' . urlencode($msg));
+} else {
+    // All failed
+    $err = 'All uploads failed: ' . implode('; ', $failedFiles);
+    header('Location: /customgpts/edit.php?id=' . $customgptId . '&err=' . urlencode($err));
 }
-
-if (!empty($errors)) {
-    $query = http_build_query([
-        'customgpt_id' => $customgptId,
-        'err' => implode(' ', $errors)
-    ]);
-    header('Location: /customgpt_documents/add.php?' . $query);
-    exit;
-}
-
-try {
-    // Upload document
-    $ctx = UserContext::getLoggedInUserContext();
-    $documentId = CustomGPTDocumentManagement::createDocument($ctx, $customgptId, $_FILES['document_file']);
-    
-    // Success - redirect to CustomGPT edit page
-    header('Location: /customgpts/edit.php?id=' . $customgptId . '&msg=' . urlencode('Document uploaded successfully.'));
-    exit;
-    
-} catch (Exception $e) {
-    // Error uploading document - redirect to CustomGPT edit page
-    header('Location: /customgpts/edit.php?id=' . $customgptId . '&err=' . urlencode('Error uploading document: ' . $e->getMessage()));
-    exit;
-}
+exit;
