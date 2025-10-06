@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../partials.php';
 require_once __DIR__ . '/../lib/CustomGPTManagement.php';
+require_once __DIR__ . '/../lib/CustomGPTDocumentManagement.php';
 Application::init();
 require_admin();
 
@@ -31,6 +32,10 @@ if (!$gpt) {
 
 // Get creator info
 $creator = CustomGPTManagement::getCreatorInfo($id);
+
+// Load documents for this CustomGPT
+$documents = CustomGPTDocumentManagement::listDocumentsByCustomGPT($id);
+$documentCount = count($documents);
 
 header_html('Edit Custom GPT');
 ?>
@@ -76,10 +81,68 @@ header_html('Edit Custom GPT');
 
     <div class="actions">
       <button class="primary" type="submit">Update Custom GPT</button>
+      <a class="button" href="/customgpt_documents/list.php?customgpt_id=<?= $id ?>">Manage Documents</a>
       <a class="button" href="/customgpts/list.php">Cancel</a>
       <button type="button" class="button danger" onclick="confirmDelete()">Delete</button>
     </div>
   </form>
+</div>
+
+<!-- Documents Section -->
+<div class="card">
+  <h3>Documents (<?= $documentCount ?>)</h3>
+  
+  <?php if (empty($documents)): ?>
+    <p class="small">No documents uploaded yet.</p>
+  <?php else: ?>
+    <table class="list">
+      <thead>
+        <tr>
+          <th>Filename</th>
+          <th>Type</th>
+          <th>Size</th>
+          <th>Uploaded</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($documents as $doc): ?>
+          <tr>
+            <td><strong><?= h($doc['original_filename'] ?? 'Unknown') ?></strong></td>
+            <td class="small"><?= h($doc['content_type'] ?? 'Unknown') ?></td>
+            <td class="small"><?= h(number_format($doc['byte_length'] ?? 0)) ?> bytes</td>
+            <td><?= h(date('M j, Y g:i A', strtotime($doc['created_at']))) ?></td>
+            <td class="small" style="display:flex;gap:8px;">
+              <a class="button small" href="/customgpt_documents/download_file.php?id=<?= (int)$doc['id'] ?>">Download</a>
+              <button type="button" class="button small danger" onclick="confirmDocumentDelete(<?= (int)$doc['id'] ?>)">Delete</button>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+  
+  <!-- Upload Form -->
+  <div style="margin-top:24px;">
+    <h4>Upload New Document</h4>
+    <form method="post" action="/customgpt_documents/add_eval.php" enctype="multipart/form-data" class="stack">
+      <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+      <input type="hidden" name="customgpt_id" value="<?=h($id)?>">
+      
+      <div class="stack">
+        <label>Select File
+          <input type="file" name="document_file" required accept=".txt,.md,.pdf,.doc,.docx,.csv,.json">
+        </label>
+        <small class="small">
+          Supported formats: TXT, MD, PDF, DOC, DOCX, CSV, JSON (Max: 10MB)
+        </small>
+      </div>
+      
+      <div class="actions">
+        <button class="primary" type="submit">Upload Document</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <script>
@@ -100,6 +163,35 @@ function confirmDelete() {
     idInput.name = 'id';
     idInput.value = '<?=h($id)?>';
     form.appendChild(idInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+function confirmDocumentDelete(documentId) {
+  if (confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/customgpt_documents/delete_eval.php';
+    
+    var csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrf';
+    csrfInput.value = '<?=h(csrf_token())?>';
+    form.appendChild(csrfInput);
+    
+    var idInput = document.createElement('input');
+    idInput.type = 'hidden';
+    idInput.name = 'id';
+    idInput.value = documentId;
+    form.appendChild(idInput);
+    
+    var customgptInput = document.createElement('input');
+    customgptInput.type = 'hidden';
+    customgptInput.name = 'customgpt_id';
+    customgptInput.value = '<?=h($id)?>';
+    form.appendChild(customgptInput);
     
     document.body.appendChild(form);
     form.submit();

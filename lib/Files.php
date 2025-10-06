@@ -196,6 +196,38 @@ final class Files {
     return (int)pdo()->lastInsertId();
   }
 
+  // Helper: insert a secure file row and return new id
+  public static function insertSecureFile(string $data, ?string $contentType, ?string $originalFilename, ?int $createdByUserId): int {
+    $sha = hash('sha256', $data);
+    $len = strlen($data);
+    $st = pdo()->prepare("
+      INSERT INTO secure_files (data, content_type, original_filename, byte_length, sha256, created_by_user_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, NOW())
+    ");
+    $st->execute([$data, $contentType, $originalFilename, $len, $sha, $createdByUserId]);
+    return (int)pdo()->lastInsertId();
+  }
+
+  // Get secure file data for download (for download endpoints)
+  public static function getSecureFileForDownload(int $id): ?array {
+    if ($id <= 0) return null;
+    
+    $st = pdo()->prepare("SELECT data, content_type, original_filename, byte_length, sha256 FROM secure_files WHERE id = ? LIMIT 1");
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ?: null;
+  }
+
+  // Get secure file raw data (for programmatic access in scripts)
+  public static function getSecureFileData(int $id): ?string {
+    if ($id <= 0) return null;
+    
+    $st = pdo()->prepare("SELECT data FROM secure_files WHERE id = ? LIMIT 1");
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ? (string)$row['data'] : null;
+  }
+
   // ===== Public cache helpers =====
 
   // Filesystem base for public cache (web-accessible). Example: /path/to/project/cache/public
