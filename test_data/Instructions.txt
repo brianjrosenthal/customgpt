@@ -1,0 +1,38 @@
+Instructions:
+
+I am building an application to enable a user to build a custom GPT using "Retrieval Augmented Generation".
+
+The first use-case is a company called Legends.  They manage stadiums and event spaces.  They want to leverage their large database of post-mortem reports on events to build a custom gpt that can help them identify learnings from the past when planning events.
+
+Here is a list of stadiums and event spaces that they either own and manage completely or that they play a major role in operating with their location, capacity, and role (owner/manager means they manage the whole thing, but in some cases they only manage some things.)
+
+Caesars Superdome	New Orleans, Louisiana, USA	73,208	Operator/Manager (ASM/Legends)
+NRG Stadium	Houston, Texas, USA	72,220	Operator/Manager (ASM/Legends)
+EverBank Stadium	Jacksonville, Florida, USA	67,814	Operator/Manager (ASM/Legends)
+U.S. Bank Stadium	Minneapolis, Minnesota, USA	66,200	Operator/Manager (ASM/Legends)
+Allegiant Stadium	Las Vegas, Nevada, USA	65,000	Operator/Manager (ASM/Legends)
+State Farm Stadium	Glendale, Arizona, USA	63,400	Operator/Manager (ASM/Legends)
+Soldier Field	Chicago, Illinois, USA	61,500	Operator/Manager (ASM/Legends)
+Suncorp Stadium	Brisbane, Queensland, Australia	52,500	Operator/Manager (ASM/Legends)
+Strawberry Arena (Friends Arena)	Solna, Stockholm, Sweden	50,000	Operator/Manager (ASM/Legends)
+Kai Tak Sports Park Stadium	Kowloon, Hong Kong	50,000	Operator/Manager (ASM/Legends)
+AT&T Stadium	Arlington, Texas, USA	80,000	Hospitality & Merchandising (Legends)
+SoFi Stadium	Inglewood, California, USA	70,240	Hospitality & Premium (Legends)
+London Stadium	London, England, UK	66,000	Non-matchday content partner (ASM/Legends)
+Nissan Stadium	Nashville, Tennessee, USA	69,143	Concessions (Legends)
+Santiago Bernabéu	Madrid, Spain	85,000	Retail & Venue Commercialization (Legends)
+Rose Bowl Stadium	Pasadena, California, USA	88,565	Premium Sales & Tours (Legends)
+Yankee Stadium	Bronx, New York, USA	46,537	Exclusive Concessions & Catering (Legends)
+Angel Stadium	Anaheim, California, USA	45,517	Exclusive Concessions (Legends)
+Spotify Camp Nou	Barcelona, Spain	105,000 (planned)	VIP/Boxes Hospitality Design (Legends)
+Stamford Bridge	London, England, UK	40,341	Exclusive Stadium Hospitality (Legends/ASM)
+
+I want to create a fictionalized set of post-mortem reports on events that can be used as a test database for this project.
+
+I created one (using ChatGPT) in the test_data directory 2024_08_05_allegiant_las_vegas_nevada.txt. 
+
+IPlease create one more file for a different stadium with other realistic issues that came up at a fictionalized event.
+
+Please 
+
+Okay, let's create another one.  Please search the web for real events that happened in the last year at the stadium to choose a real event to create a fictionalized post-mortem for.  I personally think there are a few too many issues in the one generated, so maybe have a few fewer.  Please be creative.  Please use the same format.

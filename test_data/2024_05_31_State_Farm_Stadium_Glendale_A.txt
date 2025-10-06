@@ -1,0 +1,65 @@
+2024_05_31_State_Farm_Stadium_Glendale_AZ
+
+Event: Luke Combs – “Growin’ Up and Gettin’ Old” Tour  
+Opening Acts: Jordan Davis, Mitchell Tenpenny + others  
+Attendance: ~60,500 (sold out or near capacity)  
+Report Author: Diego Navarro, Venue Operations Supervisor (Legends Global)  
+Date of Report: June 7, 2024  
+
+1. Executive Summary  
+The Luke Combs concert at State Farm Stadium went very smoothly in most respects, with strong fan satisfaction, on-time artist delivery, and solid operations. However, two technical and crowd flow issues emerged: a cooling fan failure in the premium club area causing heat complaints, and a merch point payment network latency during peak sales. These were handled without major disruption, but they highlight areas for infrastructure hardening and sales resilience.
+
+2. Incident & Issue Log  
+~ During Opening Set (18:55) – **Club Lounge cooling fan failure** (Medium) – The main HVAC fan in the premium club lounge (Level 3) failed, causing noticeable heat and some complaints.  
+~ Mid-concert (~20:45) – **Merchandise POS latency & timeouts** (Medium) – Several point-of-sale terminals experienced slow response or brief timeouts, causing line backup at premium merchandise booths.  
+~ Late in concert (~22:10) – **Concourse spillover / bottleneck** (Low) – As fans moved between zones, a narrow walkway between sections 120–125 saw foot traffic conflict, slowing movement slightly.
+
+3. Root Cause Analysis  
+- The cooling fan failure resulted from motor overload, likely tied to pre-show warm-up strain and dust accumulation in bearings, exacerbated by Arizona heat.  
+- The POS latency was traced to network congestion: high volume of simultaneous chip and tap transactions saturated the local switch/router, which lacked sufficient bandwidth headroom.  
+- The spillover bottleneck existed because walkway width in that zone was only 1.8 m, and we had queued staff and mobile concessions units partially obstructing flow under heavier foot traffic loads.
+
+4. Mitigations During Event  
+- HVAC technicians activated backup fan circuits and redistributed chilled-air ducts to affected zones; many patrons moved to adjacent cooler parts of the club.  
+- At merch booths, staff switched several registers to offline local transaction mode and added card-reading kiosks with independent network links.  
+- Ushers and crowd managers were deployed to guide fans away from the narrow path; signage was updated to encourage alternate routes.  
+- Public address announcements reminded fans to use less congested corridors and avoid lingering in the choke point.
+
+5. Lessons Learned & Detailed Recommendations  
+
+1. **Premium Area Cooling Redundancy**  
+   - Install dual-redundant fans in each premium HVAC zone, with automatic switchover upon failure.  
+   - Schedule pre-event motor and bearing check/cleaning under thermal stress conditions.  
+   - Monitor motor current draw in real time; alert if exceeding threshold.  
+   - Design ducting so airflow can be rerouted momentarily from adjacent zones in failure events.
+
+2. **Sales / POS Infrastructure & Network Resilience**  
+   - Ensure merchandise POS networks are segmented and provisioned for peak load + 50 % headroom.  
+   - Use alternate network paths (cellular / backup) per merch cluster to avoid single-switch saturation.  
+   - Employ local caching in POS software so brief network latency does not block checkout.  
+   - Pre-stage offline transaction fallback procedures so staff switch modes without delay.
+
+3. **Concourse Flow & Walkway Buffering**  
+   - Audit walkway widths vs peak foot traffic and designate “buffer zones” where no goods or staff delay is allowed.  
+   - Reserve mobile units (carts, promos) away from main walking corridors.  
+   - Deploy crowd-sway modeling ahead of time and identify potential chokepoints.  
+   - Use dynamic signage or usher reroutes if flow slows below a threshold.
+
+4. **Operational Monitoring & Real-Time Alerts**  
+   - Dashboard monitor HVAC load, zone temperatures, POS latency, and corridor density.  
+   - Define threshold alerts (e.g. POS latency > 150ms, concourse density > 2.5 persons/m²) to trigger rapid response.  
+   - Assign domain leads (cooling, tech, crowd) ready to mobilize mitigation teams within minutes.
+
+5. **Audience Communication & Support**  
+   - Use scoreboard / PA alerts to notify premium patrons of cooling rebalancing and suggest alternate lounges.  
+   - Place directional signs toward alternative merchandise points when lines backlog.  
+   - Train MC or host to make a short acknowledgement if merch lines are slow, reminding patience.
+
+6. Post-Mortem Summary to Stakeholders  
+“Luke Combs delivered a strong, well-produced show in Phoenix, with only modest hitches behind the scenes. The cooling fan failure and POS latency are manageable but instructive. As our operations scale to ever-larger concerts, we must ensure that premium areas have redundant mechanical systems, our merch network architecture is robust, and concourse flows remain free of impediment. These upgrades should be incorporated into our baseline standards for stadiums under Legends’ management.”  
+
+Submitted by:  
+Diego Navarro  
+Venue Operations Supervisor — Legends Global  
+State Farm Stadium, Glendale, AZ  
+Filed June 7, 2024  

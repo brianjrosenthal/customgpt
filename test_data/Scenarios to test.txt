@@ -1,0 +1,25 @@
+Scenarios to test
+
+1. Desert Heat Music Jam — 2026-06-21, Allegiant Stadium (Las Vegas, NV)
+A multi-act summer EDM festival where 110°F heat triggers cooling system overloads and crowd dehydration concerns.
+Relevant learnings: Allegiant Stadium SummerRock Fest — heat index management, misting fan layout, hydration planning, shade logistics, HVAC redundancy.
+
+2. Super Bowl LXIII Halftime Rehearsal — 2026-02-02, Caesars Superdome (New Orleans, LA)
+Pyrotechnic smoke lingers during halftime rehearsal, causing haze in upper decks and a scoreboard sensor false alarm.
+Relevant learnings: Beyoncé at NRG Stadium — smoke ventilation, electrical isolation, and safety communications.
+
+4. Luke Combs + Morgan Wallen Co-Headline — 2026-04-18, U.S. Bank Stadium (Minneapolis, MN)
+Extreme cold during load-in freezes truck doors and causes power draw fluctuations during lighting tests.
+Relevant learnings: Soldier Field Eras Tour — cold-resilient mechanical prep, lubricant and ignition tolerance, pre-warming protocols.
+
+5. Essence Festival 2026 — Night 2 Power Outage — Caesars Superdome (New Orleans, LA)
+A late-evening power dip mid-set leaves the headliner offstage for 20 minutes; fans become restless, with exits partially dark.
+Relevant learnings: Essence Festival 2025 — crowd retention and safety in low-lighting, transit coordination, communication protocols.
+
+7. Zach Bryan Return Tour — “Rust and Roses” Tour — 2026-09-12, State Farm Stadium (Glendale, AZ)
+Network congestion disrupts merchandise POS during opening set, with concourse choke points repeating prior patterns.
+Relevant learnings: Luke Combs at State Farm Stadium — network segmentation, concourse flow control, offline transaction fallback.
+
+8. NFL Playoff Game – Vikings vs. Packers — 2026-01-10, U.S. Bank Stadium (Minneapolis, MN)
+Snowfall creates slick exit conditions; fans slip during egress while Wi-Fi fails under load, delaying ticket scanning.
+Relevant learnings: U.S. Bank Stadium Post-Mortem (snow event) — egress under weather impairment, offline ticketing, redundant network paths.

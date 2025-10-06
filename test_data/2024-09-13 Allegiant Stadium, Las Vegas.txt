@@ -1,0 +1,63 @@
+2024-09-13 Allegiant Stadium, Las Vegas, NV
+Event: P!NK – Summer Carnival 2024 (with special guests Sheryl Crow, The Script, DJ KidCutUp)
+Attendance: ~58,200 (sold-out)  
+Report Author: Alicia Moreno, Venue Operations Supervisor (Legends Global)  
+Date of Report: September 20, 2024
+
+1. Executive Summary  
+P!NK’s Summer Carnival show was largely successful, with strong fan satisfaction and smooth performance flow. However, two operational issues emerged: a stage audio glitch mid-concert and an ingress bottleneck at VIP entrances. These did not derail the show, but highlighted weak points in redundancy and access control. The follow sections detail incidents, root causes, response, and lessons for future concerts at Allegiant.
+
+2. Incident & Issue Log  
+Day (event evening) ~20:45 – **Audio dropout on Stage A** (Medium) – Approximately 10 seconds of audio silence during second set; guitar and vocal tracks dropped out briefly before resuming.  
+Day ~18:30 (pre-show) – **VIP entrance queue backup** (Low) – Premium ticket holders experienced delays at VIP gate 3 as badge-check scanners lagged under peak inflow.
+
+3. Root Cause Analysis  
+- The audio dropout was traced to an overloaded cable trunk: one digital audio communication line lost power during a load shift when lighting cues engaged neighboring systems.  
+- VIP entrance scanners used a secondary network with limited bandwidth; when several gates switched to that network as failover, the scan latency spiked.  
+- The ingress model assumed VIP arrival spread, but many VIP ticket holders arrived in a compressed window (18:15–18:45), compressing capacity margin.
+
+4. Mitigations During Event  
+- Sound engineers triggered the backup audio feed mid-detection (within ~5 seconds) to restore live audio.  
+- The MC addressed the drop politely, and the crowd applauded recovery.  
+- Venue staff reallocated two mobile badge-scan rovers from adjacent entrances to assist VIP Gate 3.  
+- Staff announced alternate VIP access points and opened Gate 4 for overflow VIP access.
+
+5. Lessons Learned & Detailed Recommendations  
+
+1. **Strengthen Redundant Audio Infrastructure**  
+   - Use physically separate cable pathways for primary and backup audio trunks to avoid simultaneous strain.  
+   - Ensure that lighting, audio, and video systems do not share power circuits where possible (isolate critical trunks).  
+   - Conduct a “load shift test” pre-load during soundcheck to detect possible dropouts under cue transitions.  
+   - Deploy an *instant fallback buffer* in the audio console to mask micro outages (<15 sec) automatically.
+
+2. **Upgrade VIP Gate Network & Scanner Throughput**  
+   - Move VIP badge scanning to high-availability backbone networks (fiber or high-bandwidth redundant links).  
+   - Use local caching of VIP validation data to reduce reliance on network backhaul.  
+   - Equip mobile roving scanners to relieve congested gates dynamically.  
+   - Stagger VIP arrival messaging (e.g. “early entry 5–15 min ahead”) to smooth peak clustering.
+
+3. **Ingress Modeling Refinement**  
+   - For high-profile shows, expect VIP arrivals in compressed windows; plan for ±20% surge on top of spread models.  
+   - Run ingress simulations with higher arrival density for VIP and premium groups.  
+   - Pre-open secondary VIP entry gates when queue length reaches threshold (e.g. 50 people) instead of waiting for full fill.  
+   - Use dynamic signage or mobile push notification to redirect VIP traffic to less congested gates.
+
+4. **Operational Response Readiness**  
+   - Pre-assign a “rapid mitigation team” (audio, gate, network) to be ready to redeploy within 60 seconds.  
+   - Monitor critical signal lines (audio, power, network) in real time with automatic alerts.  
+   - Run scenario drills prior to show start (e.g. simulate audio drop, gate failure) to sharpen staff response.
+
+5. **Audience Communication Protocol**  
+   - The MC should be briefed in advance on how to diplomatically announce short disruptions to maintain crowd trust.  
+   - Use scoreboard / Jumbotron text overlays (“We’re resolving a brief technical issue – thanks for your patience”) to manage expectations.  
+   - For queued access, send push notifications to VIP apps letting attendees know when gates are open / alternate access.
+
+6. Post-Mortem Summary to Stakeholders  
+“P!NK’s show was a major hit. The two issues we experienced were moderate and recoverable, but they underscore the importance of tighter redundancy and smarter ingress scaling for premium access. The audio trunk failure exposed a fragility in our system design, and the VIP gate lag illuminated a bottleneck in our auxiliary network.  
+Future concerts should assume that VIP traffic will not always arrive smoothly and that system transitions (lighting, power load shifts) will stress connected subsystems. The recommended infrastructure upgrades and process refinements above should be adopted across future major shows at Allegiant Stadium.”
+
+Submitted by:  
+Alicia Moreno  
+Venue Operations Supervisor — Legends Global  
+Allegiant Stadium, Las Vegas NV  
+Filed September 20, 2024

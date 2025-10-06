@@ -1,5 +1,7 @@
 ### Project Brief
-"rag" is a web application to allow users to upload documents and then build a custom gpt that responds with answers from those documents.
+"Custom GPT" is a web application to allow users to upload documents and then build a custom gpt that responds with answers from those documents.
+
+I'm doing this for a friend who is the CEO of a company called Legends Hospitality, Inc.  They manage stadiums and event spaces.  They want to leverage their large database of post-mortem reports on events to build a custom gpt that can help them identify learnings from the past when planning events.
 
 ## User Types
 
