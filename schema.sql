@@ -101,6 +101,22 @@ CREATE INDEX idx_emails_sent_user_id ON emails_sent(sent_by_user_id);
 CREATE INDEX idx_emails_sent_to_email ON emails_sent(to_email);
 CREATE INDEX idx_emails_sent_success ON emails_sent(success);
 
+-- ===== Custom GPTs =====
+CREATE TABLE customgpts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  created_by INT NOT NULL,
+  is_public TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_customgpts_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_customgpts_created_by ON customgpts(created_by);
+CREATE INDEX idx_customgpts_is_public ON customgpts(is_public);
+CREATE INDEX idx_customgpts_created_at ON customgpts(created_at);
+
 -- Optional: seed an admin user (update email and password hash, then remove)
 INSERT INTO users (first_name,last_name,email,password_hash,is_admin,email_verified_at)
 VALUES ('Brian','Rosenthal','brian.rosenthal@gmail.com','$2y$10$9xH7Jq4v3o6s9k3y8i4rVOyWb0yBYZ5rW.0f9pZ.gG9K6l7lS6b2S',1,NOW());

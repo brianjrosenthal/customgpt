@@ -55,6 +55,7 @@ class ApplicationUI {
                 $navRight[] = '<div class="nav-admin-wrap">'
                             . '<a href="#" id="adminToggle" class="nav-admin-link" aria-expanded="false">Admin</a>'
                             . '<div id="adminMenu" class="admin-menu hidden" role="menu" aria-hidden="true">'
+                            .   '<a href="/customgpts/list.php" role="menuitem">Custom GPTs</a>'
                             .   '<a href="/admin/users.php" role="menuitem">Users</a>'
                             .   '<a href="/admin/settings.php" role="menuitem">Settings</a>'
                             .   '<a href="/admin/activity_log.php" role="menuitem">Activity Log</a>'
