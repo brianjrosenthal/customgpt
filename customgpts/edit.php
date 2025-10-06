@@ -42,7 +42,19 @@ header_html('Edit Custom GPT');
 
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <h2>Edit Custom GPT</h2>
-  <a class="button" href="/customgpts/list.php">Custom GPTs</a>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <div style="position:relative;">
+      <button type="button" class="button" onclick="toggleActionsMenu()" id="actionsMenuBtn">
+        Actions ▼
+      </button>
+      <div id="actionsMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:white;border:1px solid #ccc;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);min-width:200px;z-index:1000;">
+        <a href="/customgpts/generate_chunks_eval.php?id=<?= $id ?>" style="display:block;padding:12px 16px;text-decoration:none;color:#333;border-bottom:1px solid #eee;">
+          Generate Chunks from Files
+        </a>
+      </div>
+    </div>
+    <a class="button" href="/customgpts/list.php">Custom GPTs</a>
+  </div>
 </div>
 
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
@@ -146,6 +158,24 @@ header_html('Edit Custom GPT');
 </div>
 
 <script>
+function toggleActionsMenu() {
+  var menu = document.getElementById('actionsMenu');
+  if (menu.style.display === 'none' || menu.style.display === '') {
+    menu.style.display = 'block';
+  } else {
+    menu.style.display = 'none';
+  }
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+  var menu = document.getElementById('actionsMenu');
+  var btn = document.getElementById('actionsMenuBtn');
+  if (menu && btn && !menu.contains(event.target) && !btn.contains(event.target)) {
+    menu.style.display = 'none';
+  }
+});
+
 function confirmDelete() {
   if (confirm('Are you sure you want to delete this Custom GPT? This action cannot be undone.')) {
     var form = document.createElement('form');

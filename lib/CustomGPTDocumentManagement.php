@@ -139,4 +139,69 @@ class CustomGPTDocumentManagement {
         $result = $st->fetchColumn();
         return $result !== false ? (int)$result : null;
     }
+
+    // ===== Chunk Management Methods =====
+
+    // Get all chunks for a document
+    public static function getChunksByDocument(int $documentId): array {
+        $st = self::pdo()->prepare(
+            'SELECT * FROM customgpt_document_chunks 
+             WHERE customgpt_document_id = ? 
+             ORDER BY sort_order'
+        );
+        $st->execute([$documentId]);
+        return $st->fetchAll();
+    }
+
+    // Count chunks for a document
+    public static function countChunksByDocument(int $documentId): int {
+        $st = self::pdo()->prepare(
+            'SELECT COUNT(*) FROM customgpt_document_chunks WHERE customgpt_document_id = ?'
+        );
+        $st->execute([$documentId]);
+        return (int)$st->fetchColumn();
+    }
+
+    // Count total chunks for a CustomGPT
+    public static function countChunksByCustomGPT(int $customGptId): int {
+        $st = self::pdo()->prepare(
+            'SELECT COUNT(*) FROM customgpt_document_chunks c
+             INNER JOIN customgpt_documents d ON c.customgpt_document_id = d.id
+             WHERE d.customgpt_id = ?'
+        );
+        $st->execute([$customGptId]);
+        return (int)$st->fetchColumn();
+    }
+
+    // Delete all chunks for a document
+    public static function deleteChunksByDocument(int $documentId): bool {
+        $st = self::pdo()->prepare('DELETE FROM customgpt_document_chunks WHERE customgpt_document_id = ?');
+        return $st->execute([$documentId]);
+    }
+
+    // Delete all chunks for a CustomGPT
+    public static function deleteChunksByCustomGPT(int $customGptId): bool {
+        $st = self::pdo()->prepare(
+            'DELETE FROM customgpt_document_chunks 
+             WHERE customgpt_document_id IN (
+                 SELECT id FROM customgpt_documents WHERE customgpt_id = ?
+             )'
+        );
+        return $st->execute([$customGptId]);
+    }
+
+    // Insert multiple chunks for a document
+    public static function insertChunks(int $documentId, array $chunks): bool {
+        $pdo = self::pdo();
+        $st = $pdo->prepare(
+            'INSERT INTO customgpt_document_chunks (customgpt_document_id, sort_order, text, created_at)
+             VALUES (?, ?, ?, NOW())'
+        );
+        
+        foreach ($chunks as $sortOrder => $text) {
+            $st->execute([$documentId, $sortOrder, $text]);
+        }
+        
+        return true;
+    }
 }

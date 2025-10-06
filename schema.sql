@@ -148,6 +148,19 @@ CREATE INDEX idx_cgd_customgpt ON customgpt_documents(customgpt_id);
 CREATE INDEX idx_cgd_file ON customgpt_documents(file_id);
 CREATE INDEX idx_cgd_created_at ON customgpt_documents(created_at);
 
+-- ===== CustomGPT Document Chunks =====
+CREATE TABLE customgpt_document_chunks (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  customgpt_document_id INT NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  text LONGTEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_cgdc_document FOREIGN KEY (customgpt_document_id) REFERENCES customgpt_documents(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_cgdc_document ON customgpt_document_chunks(customgpt_document_id);
+CREATE INDEX idx_cgdc_sort_order ON customgpt_document_chunks(customgpt_document_id, sort_order);
+
 -- Optional: seed an admin user (update email and password hash, then remove)
 INSERT INTO users (first_name,last_name,email,password_hash,is_admin,email_verified_at)
 VALUES ('Brian','Rosenthal','brian.rosenthal@gmail.com','$2y$10$9xH7Jq4v3o6s9k3y8i4rVOyWb0yBYZ5rW.0f9pZ.gG9K6l7lS6b2S',1,NOW());

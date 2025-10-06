@@ -30,3 +30,9 @@ define('INVITE_HMAC_KEY', '');
 // HMAC key for remember me tokens (REQUIRED for persistent login).
 // Set to a long random string, e.g., bin2hex(random_bytes(32)).
 define('REMEMBER_TOKEN_KEY', '');
+
+// Python executable path for chunk generation script
+// Use full path to Python installation that has langchain, pymysql, etc. installed
+// Example: '/Library/Frameworks/Python.framework/Versions/3.12/bin/python3'
+// Or just 'python3' if it's in your PATH and has the required packages
+define('PYTHON_PATH', 'python3');
