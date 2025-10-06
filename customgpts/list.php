@@ -34,14 +34,9 @@ header_html('Custom GPTs');
 
 <div class="card">
   <form method="get" class="stack">
-    <div class="grid" style="grid-template-columns:1fr auto;gap:12px;">
-      <label>Search
-        <input type="text" name="q" value="<?=h($search)?>" placeholder="Name or description">
-      </label>
-      <div style="align-self:end;">
-        <button type="submit" class="button">Search</button>
-      </div>
-    </div>
+    <label>Search
+      <input type="text" name="q" value="<?=h($search)?>" placeholder="Name or description">
+    </label>
   </form>
   
   <script>
@@ -74,8 +69,6 @@ header_html('Custom GPTs');
           <th>Name</th>
           <th>Description</th>
           <th>Created By</th>
-          <th>Visibility</th>
-          <th>Created</th>
           <th></th>
         </tr>
       </thead>
@@ -85,14 +78,6 @@ header_html('Custom GPTs');
             <td><strong><?= h($gpt['name'] ?? '') ?></strong></td>
             <td class="small"><?= h(mb_substr($gpt['description'] ?? '', 0, 100)) ?><?= mb_strlen($gpt['description'] ?? '') > 100 ? '...' : '' ?></td>
             <td><?= h(trim(($gpt['first_name'] ?? '') . ' ' . ($gpt['last_name'] ?? ''))) ?></td>
-            <td>
-              <?php if (!empty($gpt['is_public'])): ?>
-                <span class="status-verified">Public</span>
-              <?php else: ?>
-                <span class="status-pending">Private</span>
-              <?php endif; ?>
-            </td>
-            <td><?= h(date('M j, Y', strtotime($gpt['created_at']))) ?></td>
             <td class="small">
               <a class="button small" href="/customgpts/edit.php?id=<?= (int)$gpt['id'] ?>">Edit</a>
             </td>
