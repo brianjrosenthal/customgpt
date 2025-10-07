@@ -36,3 +36,7 @@ define('REMEMBER_TOKEN_KEY', '');
 // Example: '/Library/Frameworks/Python.framework/Versions/3.12/bin/python3'
 // Or just 'python3' if it's in your PATH and has the required packages
 define('PYTHON_PATH', 'python3');
+
+// OpenAI API configuration for vector embeddings
+define('OPENAI_API_KEY', ''); // Your OpenAI API key
+define('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small'); // Embedding model to use

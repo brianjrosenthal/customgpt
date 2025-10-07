@@ -51,6 +51,9 @@ header_html('Edit Custom GPT');
         <a href="/customgpts/generate_chunks_eval.php?id=<?= $id ?>" style="display:block;padding:12px 16px;text-decoration:none;color:#333;border-bottom:1px solid #eee;">
           Generate Chunks from Files
         </a>
+        <a href="/customgpts/generate_embeddings_eval.php?id=<?= $id ?>" style="display:block;padding:12px 16px;text-decoration:none;color:#333;">
+          Generate Vector Embeddings
+        </a>
       </div>
     </div>
     <a class="button" href="/customgpts/list.php">Custom GPTs</a>

@@ -154,12 +154,34 @@ CREATE TABLE customgpt_document_chunks (
   customgpt_document_id INT NOT NULL,
   sort_order INT NOT NULL DEFAULT 0,
   text LONGTEXT NOT NULL,
+  embedding_error TEXT DEFAULT NULL,
+  embedding_attempted_at DATETIME DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_cgdc_document FOREIGN KEY (customgpt_document_id) REFERENCES customgpt_documents(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_cgdc_document ON customgpt_document_chunks(customgpt_document_id);
 CREATE INDEX idx_cgdc_sort_order ON customgpt_document_chunks(customgpt_document_id, sort_order);
+CREATE INDEX idx_cgdc_embedding_error ON customgpt_document_chunks(embedding_error(100));
+CREATE INDEX idx_cgdc_embedding_attempted ON customgpt_document_chunks(embedding_attempted_at);
+
+-- ===== CustomGPT Vector Embeddings =====
+CREATE TABLE customgpt_vector_embeddings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  customgpt_id INT UNIQUE NOT NULL,
+  dim INT NOT NULL,
+  embed_model VARCHAR(64) NOT NULL,
+  faiss_bytes LONGBLOB NOT NULL,
+  id_map_json JSON NOT NULL,
+  docstore_json JSON NOT NULL,
+  checksum CHAR(64) NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_cve_customgpt FOREIGN KEY (customgpt_id) REFERENCES customgpts(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_cve_customgpt ON customgpt_vector_embeddings(customgpt_id);
+CREATE INDEX idx_cve_checksum ON customgpt_vector_embeddings(checksum);
+CREATE INDEX idx_cve_updated_at ON customgpt_vector_embeddings(updated_at);
 
 -- Optional: seed an admin user (update email and password hash, then remove)
 INSERT INTO users (first_name,last_name,email,password_hash,is_admin,email_verified_at)
