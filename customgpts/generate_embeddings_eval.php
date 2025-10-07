@@ -72,26 +72,22 @@ file_put_contents($logFile, "Script exists: " . (file_exists($scriptPath) ? 'yes
 file_put_contents($logFile, "Script readable: " . (is_readable($scriptPath) ? 'yes' : 'NO') . "\n", FILE_APPEND);
 file_put_contents($logFile, "===================================\n\n", FILE_APPEND);
 
-// Build the command to run in background
-// Redirect stderr to the log file as well so we can see errors
+// Build the command to run in background with nohup
+// This ensures the process runs independently and doesn't block PHP
 $command = sprintf(
-    '%s %s %d %s 2>&1 &',
+    'nohup %s %s %d %s >> %s 2>&1 &',
     escapeshellcmd($pythonPath),
     escapeshellarg($scriptPath),
     $id,
+    escapeshellarg($logFile),
     escapeshellarg($logFile)
 );
 
 file_put_contents($logFile, "Executing command:\n{$command}\n\n", FILE_APPEND);
-
-// Execute the command in background
-exec($command, $output, $returnCode);
-
-file_put_contents($logFile, "Command return code: {$returnCode}\n", FILE_APPEND);
-if (!empty($output)) {
-    file_put_contents($logFile, "Command output: " . implode("\n", $output) . "\n", FILE_APPEND);
-}
 file_put_contents($logFile, "\n=== Python Script Output ===\n\n", FILE_APPEND);
+
+// Execute the command in background (nohup ensures it runs independently)
+exec($command);
 
 // Redirect to progress page
 header('Location: /customgpts/generate_embeddings.php?id=' . $id);
