@@ -164,6 +164,62 @@ def save_to_cache(customgpt_id, checksum, vectorstore):
         return False
 
 
+def deserialize_faiss_index(faiss_bytes, id_map_json, docstore_json, embeddings):
+    """
+    Deserialize FAISS index from database components.
+    
+    Args:
+        faiss_bytes: Raw bytes of the FAISS index
+        id_map_json: JSON string of the id_map
+        docstore_json: JSON string of the docstore
+        embeddings: OpenAI embeddings instance
+    
+    Returns:
+        FAISS vectorstore
+    """
+    # Deserialize FAISS index from bytes (file format)
+    # Write to temp file and read back as index
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp_path = tmp_file.name
+        tmp_file.write(faiss_bytes)
+    
+    try:
+        index = faiss.read_index(tmp_path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+    
+    # Deserialize id_map
+    if isinstance(id_map_json, str):
+        id_map = json.loads(id_map_json)
+    else:
+        id_map = id_map_json
+    index_to_docstore_id = {int(k): v for k, v in id_map.items()}
+    
+    # Deserialize docstore
+    if isinstance(docstore_json, str):
+        docstore_data = json.loads(docstore_json)
+    else:
+        docstore_data = docstore_json
+    docstore_dict = {}
+    for doc_id, doc_data in docstore_data.items():
+        docstore_dict[doc_id] = Document(
+            page_content=doc_data['page_content'],
+            metadata=doc_data['metadata']
+        )
+    docstore = InMemoryDocstore(docstore_dict)
+    
+    # Create vectorstore
+    vectorstore = FAISS(
+        embedding_function=embeddings,
+        index=index,
+        docstore=docstore,
+        index_to_docstore_id=index_to_docstore_id
+    )
+    
+    return vectorstore
+
+
 def restore_from_database(customgpt_id, embeddings):
     """
     Restore vector store from MySQL database.
@@ -184,38 +240,12 @@ def restore_from_database(customgpt_id, embeddings):
             if not row:
                 return None, None
             
-            # Deserialize FAISS index from bytes (file format)
-            # Write to temp file and read back as index
-            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-                tmp_path = tmp_file.name
-                tmp_file.write(row['faiss_bytes'])
-            
-            try:
-                index = faiss.read_index(tmp_path)
-            finally:
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
-            
-            # Deserialize id_map
-            id_map = json.loads(row['id_map_json'])
-            index_to_docstore_id = {int(k): v for k, v in id_map.items()}
-            
-            # Deserialize docstore
-            docstore_data = json.loads(row['docstore_json'])
-            docstore_dict = {}
-            for doc_id, doc_data in docstore_data.items():
-                docstore_dict[doc_id] = Document(
-                    page_content=doc_data['page_content'],
-                    metadata=doc_data['metadata']
-                )
-            docstore = InMemoryDocstore(docstore_dict)
-            
-            # Create vectorstore
-            vectorstore = FAISS(
-                embedding_function=embeddings.embed_query,
-                index=index,
-                docstore=docstore,
-                index_to_docstore_id=index_to_docstore_id
+            # Use the deserialize function
+            vectorstore = deserialize_faiss_index(
+                row['faiss_bytes'],
+                row['id_map_json'],
+                row['docstore_json'],
+                embeddings
             )
             
             checksum = row['checksum']

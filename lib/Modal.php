@@ -283,4 +283,148 @@ class Modal {
         <?php
         return ob_get_clean();
     }
+    
+    /**
+     * Generate a vector embeddings information modal
+     * 
+     * @param int $customgptId The CustomGPT ID
+     * @return string HTML for the modal
+     */
+    public static function embeddingsInfoModal($customgptId) {
+        // Get configuration values
+        $platform = "OpenAI";
+        $model = defined('OPENAI_EMBEDDING_MODEL') ? OPENAI_EMBEDDING_MODEL : 'text-embedding-3-small';
+        
+        $modalId = 'embeddingsInfoModal';
+        
+        ob_start();
+        ?>
+        <div id="<?= $modalId ?>" class="modal" style="display:none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Generate Vector Embeddings</h3>
+                    <button class="modal-close" onclick="closeModal('<?= $modalId ?>')">&times;</button>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="info-section">
+                        <h4>What are Vector Embeddings?</h4>
+                        <p>Vector embeddings are numerical representations of your document chunks that enable semantic search and retrieval. This process converts text into high-dimensional vectors that capture meaning and context.</p>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4>Configuration</h4>
+                        <div class="config-display">
+                            <div class="config-item">
+                                <strong>Platform:</strong>
+                                <span><?= htmlspecialchars($platform) ?></span>
+                            </div>
+                            <div class="config-item">
+                                <strong>Model:</strong>
+                                <span><?= htmlspecialchars($model) ?></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4>What will happen:</h4>
+                        <ol class="process-steps">
+                            <li>Load all document chunks from the database</li>
+                            <li>Generate vector embeddings using <?= htmlspecialchars($model) ?></li>
+                            <li>Create a FAISS vector index for fast retrieval</li>
+                            <li>Store the embeddings in the database</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="info-section warning">
+                        <strong>Note:</strong> Document chunks must be generated first before creating embeddings. This process may take a few minutes depending on the number of chunks.
+                    </div>
+                    
+                    <input type="hidden" id="embeddings_customgpt_id" value="<?= $customgptId ?>">
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="button" onclick="closeModal('<?= $modalId ?>')">Cancel</button>
+                    <button type="button" class="button primary" onclick="submitEmbeddingsGeneration()">Generate Embeddings</button>
+                </div>
+            </div>
+        </div>
+        
+        <style>
+            .info-section {
+                margin-bottom: 20px;
+            }
+            
+            .info-section h4 {
+                margin: 0 0 10px 0;
+                font-size: 16px;
+                color: #333;
+            }
+            
+            .info-section p {
+                margin: 0;
+                line-height: 1.6;
+                color: #666;
+            }
+            
+            .config-display {
+                background-color: #f9f9f9;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 15px;
+            }
+            
+            .config-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+            }
+            
+            .config-item:not(:last-child) {
+                border-bottom: 1px solid #e0e0e0;
+            }
+            
+            .config-item strong {
+                color: #333;
+            }
+            
+            .config-item span {
+                color: #007bff;
+                font-family: monospace;
+            }
+            
+            .process-steps {
+                margin: 10px 0;
+                padding-left: 20px;
+                color: #666;
+            }
+            
+            .process-steps li {
+                margin-bottom: 8px;
+                line-height: 1.5;
+            }
+            
+            .warning {
+                background-color: #fff3cd;
+                border: 1px solid #ffc107;
+                border-radius: 4px;
+                padding: 12px;
+                color: #856404;
+            }
+            
+            .warning strong {
+                color: #856404;
+            }
+        </style>
+        
+        <script>
+            function submitEmbeddingsGeneration() {
+                const customgptId = document.getElementById('embeddings_customgpt_id').value;
+                // Redirect directly to generation
+                window.location.href = '/customgpts/generate_embeddings_eval.php?id=' + customgptId;
+            }
+        </script>
+        <?php
+        return ob_get_clean();
+    }
 }

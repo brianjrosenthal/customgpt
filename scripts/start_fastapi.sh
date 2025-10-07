@@ -32,6 +32,10 @@ if [ ! -f "$PROJECT_DIR/config.local.php" ]; then
     exit 1
 fi
 
+# Set environment variable to handle OpenMP library conflicts
+# This is needed when using multiple libraries (FAISS + sentence-transformers) with OpenMP
+export KMP_DUPLICATE_LIB_OK=TRUE
+
 echo "Starting CustomGPT FastAPI Processing Service..."
 echo "Press Ctrl+C to stop the service"
 echo ""

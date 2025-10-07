@@ -88,6 +88,43 @@ class ChunkGenerationRequest(BaseModel):
     chunk_overlap: int = 200
 
 
+class RetrievalRequest(BaseModel):
+    """Retrieval request model."""
+    query: str
+    top_k: int = 10
+
+
+class RetrievalResponse(BaseModel):
+    """Retrieval response model."""
+    chunks: List[dict]
+    query: str
+    total_results: int
+
+
+class RerankRequest(BaseModel):
+    """Re-ranking request model."""
+    query: str
+    chunks: List[dict]
+
+
+class RerankResponse(BaseModel):
+    """Re-ranking response model."""
+    reranked_chunks: List[dict]
+    query: str
+
+
+class PromptGenerationRequest(BaseModel):
+    """Prompt generation request model."""
+    query: str
+    reranked_chunks: List[dict]
+
+
+class PromptGenerationResponse(BaseModel):
+    """Prompt generation response model."""
+    prompt: str
+    context_documents: List[dict]
+
+
 class JobCreateResponse(BaseModel):
     """Job creation response model."""
     job_id: str
@@ -455,6 +492,346 @@ async def get_job_logs(job_id: str):
         "job_id": job_id,
         "logs": logs
     }
+
+
+@app.post("/api/v1/retrieve/{customgpt_id}", response_model=RetrievalResponse)
+async def retrieve_chunks(customgpt_id: int, request: RetrievalRequest):
+    """Retrieve relevant chunks for a query using semantic search."""
+    try:
+        # Import heavy libraries only when needed
+        from langchain_openai import OpenAIEmbeddings
+        from langchain_community.vectorstores import FAISS
+        import json
+        import numpy as np
+        
+        # Get OpenAI configuration
+        api_key, embed_model = get_openai_config()
+        
+        # Connect to database
+        connection = embeddings_get_db_connection()
+        
+        with connection.cursor() as cursor:
+            # Load embeddings from database
+            cursor.execute(
+                """SELECT faiss_bytes, id_map_json, docstore_json, embed_model
+                   FROM customgpt_vector_embeddings
+                   WHERE customgpt_id = %s
+                   ORDER BY updated_at DESC
+                   LIMIT 1""",
+                (customgpt_id,)
+            )
+            embeddings_row = cursor.fetchone()
+            
+            if not embeddings_row:
+                raise HTTPException(
+                    status_code=404,
+                    detail="No embeddings found for this CustomGPT. Please generate embeddings first."
+                )
+            
+            # Deserialize FAISS index
+            faiss_bytes = embeddings_row['faiss_bytes']
+            id_map_json = embeddings_row['id_map_json']
+            docstore_json = embeddings_row['docstore_json']
+            
+            # Import faiss helper
+            from faiss_helper import deserialize_faiss_index
+            
+            # Initialize embeddings
+            embeddings = OpenAIEmbeddings(
+                openai_api_key=api_key,
+                model=embed_model
+            )
+            
+            # Deserialize the vector store
+            vectorstore = deserialize_faiss_index(faiss_bytes, id_map_json, docstore_json, embeddings)
+            
+            # Perform similarity search with scores
+            docs_with_scores = vectorstore.similarity_search_with_score(
+                request.query,
+                k=request.top_k
+            )
+            
+            # Format results
+            results = []
+            for doc, score in docs_with_scores:
+                # Extract metadata
+                metadata = doc.metadata
+                chunk_id = metadata.get('chunk_id')
+                document_id = metadata.get('document_id')
+                filename = metadata.get('filename', '')
+                
+                # Calculate similarity percentage (FAISS uses L2 distance, lower is better)
+                # Convert to similarity score (0-100%)
+                # For L2 distance, we use: similarity = 1 / (1 + distance)
+                similarity_percent = (1 / (1 + score)) * 100
+                
+                results.append({
+                    'text': doc.page_content,
+                    'score': float(score),
+                    'similarity_percent': float(similarity_percent),
+                    'chunk_id': chunk_id,
+                    'document_id': document_id,
+                    'filename': filename
+                })
+        
+        connection.close()
+        
+        return RetrievalResponse(
+            chunks=results,
+            query=request.query,
+            total_results=len(results)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error during retrieval: {str(e)}"
+        )
+
+
+@app.post("/api/v1/rerank/{customgpt_id}", response_model=RerankResponse)
+async def rerank_chunks(customgpt_id: int, request: RerankRequest):
+    """Re-rank chunks using cross-encoder model."""
+    try:
+        # Import cross-encoder library
+        from sentence_transformers import CrossEncoder
+        
+        # Load cross-encoder model
+        model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+        
+        # Prepare query-document pairs
+        pairs = [[request.query, chunk['text']] for chunk in request.chunks]
+        
+        # Score all pairs
+        scores = model.predict(pairs)
+        
+        # Combine chunks with their cross-encoder scores and original rank
+        scored_chunks = []
+        for idx, (chunk, score) in enumerate(zip(request.chunks, scores)):
+            scored_chunk = chunk.copy()
+            scored_chunk['cross_encoder_score'] = float(score)
+            scored_chunk['original_rank'] = idx + 1
+            scored_chunks.append(scored_chunk)
+        
+        # Sort by cross-encoder score (descending)
+        reranked_chunks = sorted(scored_chunks, key=lambda x: x['cross_encoder_score'], reverse=True)
+        
+        return RerankResponse(
+            reranked_chunks=reranked_chunks,
+            query=request.query
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error during re-ranking: {str(e)}"
+        )
+
+
+@app.post("/api/v1/generate-prompt/{customgpt_id}", response_model=PromptGenerationResponse)
+async def generate_prompt(customgpt_id: int, request: PromptGenerationRequest):
+    """Generate a context-rich prompt from reranked chunks."""
+    try:
+        MIN_PERCENT_SCORE = 40.0
+        
+        # Connect to database
+        connection = embeddings_get_db_connection()
+        
+        with connection.cursor() as cursor:
+            # Filter chunks by minimum score and take top 3
+            qualifying_chunks = [
+                chunk for chunk in request.reranked_chunks
+                if (chunk['cross_encoder_score'] * 100) >= MIN_PERCENT_SCORE
+            ][:3]
+            
+            if not qualifying_chunks:
+                # No chunks meet the minimum threshold
+                prompt = f"""You are an operations advisor, offering lessons from previous events to inform the event or question in the prompt. Use ONLY the post-mortem excerpts provided.
+
+New event / question:
+{request.query}
+
+Context (each block is a different prior incident)
+
+No qualifying documents found (all documents scored below {MIN_PERCENT_SCORE}% relevance).
+
+Instructions:
+I don't have a strong match in prior post-mortems for this query."""
+                
+                return PromptGenerationResponse(
+                    prompt=prompt,
+                    context_documents=[]
+                )
+            
+            # Expand each chunk to document context
+            context_docs = []
+            seen_documents = set()
+            
+            for chunk in qualifying_chunks:
+                chunk_id = chunk['chunk_id']
+                document_id = chunk['document_id']
+                
+                # Skip if we've already processed this document
+                if document_id in seen_documents:
+                    continue
+                
+                seen_documents.add(document_id)
+                
+                # Get chunk details
+                cursor.execute(
+                    """SELECT customgpt_document_id, sort_order
+                       FROM customgpt_document_chunks
+                       WHERE id = %s""",
+                    (chunk_id,)
+                )
+                chunk_row = cursor.fetchone()
+                
+                if not chunk_row:
+                    continue
+                
+                customgpt_document_id = chunk_row['customgpt_document_id']
+                target_sort_order = chunk_row['sort_order']
+                
+                # Count total chunks in document
+                cursor.execute(
+                    """SELECT COUNT(*) as total
+                       FROM customgpt_document_chunks
+                       WHERE customgpt_document_id = %s""",
+                    (customgpt_document_id,)
+                )
+                total_chunks = cursor.fetchone()['total']
+                
+                # Get filename
+                cursor.execute(
+                    """SELECT sf.original_filename
+                       FROM customgpt_documents d
+                       JOIN secure_files sf ON d.file_id = sf.id
+                       WHERE d.id = %s""",
+                    (customgpt_document_id,)
+                )
+                filename_row = cursor.fetchone()
+                filename = filename_row['original_filename'] if filename_row else f"Document {customgpt_document_id}"
+                
+                # Determine which chunks to fetch
+                if total_chunks <= 10:
+                    # Fetch entire document
+                    cursor.execute(
+                        """SELECT text
+                           FROM customgpt_document_chunks
+                           WHERE customgpt_document_id = %s
+                           ORDER BY sort_order""",
+                        (customgpt_document_id,)
+                    )
+                else:
+                    # Fetch: first chunk + 5 before target + target + 1 after
+                    # Get first chunk
+                    cursor.execute(
+                        """SELECT text
+                           FROM customgpt_document_chunks
+                           WHERE customgpt_document_id = %s
+                           ORDER BY sort_order
+                           LIMIT 1""",
+                        (customgpt_document_id,)
+                    )
+                    first_chunk = cursor.fetchall()
+                    
+                    # Get contextual chunks around target
+                    start_order = max(0, target_sort_order - 5)
+                    end_order = target_sort_order + 1
+                    
+                    cursor.execute(
+                        """SELECT text
+                           FROM customgpt_document_chunks
+                           WHERE customgpt_document_id = %s
+                           AND sort_order BETWEEN %s AND %s
+                           ORDER BY sort_order""",
+                        (customgpt_document_id, start_order, end_order)
+                    )
+                    contextual_chunks = cursor.fetchall()
+                    
+                    # Combine, avoiding duplicates if first chunk is in range
+                    all_chunks = first_chunk
+                    if start_order > 0:
+                        all_chunks.extend(contextual_chunks)
+                    else:
+                        # First chunk already included
+                        all_chunks.extend(contextual_chunks[1:])
+                    
+                    cursor.execute(
+                        """SELECT 1 FROM 
+                           (SELECT text FROM customgpt_document_chunks
+                            WHERE customgpt_document_id = %s
+                            ORDER BY sort_order LIMIT 1) as first
+                           WHERE 1=1""",
+                        (customgpt_document_id,)
+                    )
+                    # Re-fetch with proper combination
+                    cursor.execute(
+                        """SELECT text
+                           FROM customgpt_document_chunks
+                           WHERE customgpt_document_id = %s
+                           AND (sort_order = 0 OR sort_order BETWEEN %s AND %s)
+                           ORDER BY sort_order""",
+                        (customgpt_document_id, start_order, end_order)
+                    )
+                
+                chunk_texts = cursor.fetchall()
+                document_text = '\n\n'.join([row['text'] for row in chunk_texts])
+                
+                context_docs.append({
+                    'document_id': customgpt_document_id,
+                    'filename': filename,
+                    'text': document_text,
+                    'chunk_count': len(chunk_texts)
+                })
+            
+            # Build context string
+            context_str = ""
+            for idx, doc in enumerate(context_docs, 1):
+                context_str += f"DOCUMENT #{idx} (ID: {doc['document_id']})\n"
+                context_str += doc['text']
+                context_str += "\n-----\n\n"
+            
+            # Build the prompt
+            prompt = f"""You are an operations advisor, offering lessons from previous events to inform the event or question in the prompt. Use ONLY the post-mortem excerpts provided.
+
+New event / question:
+{request.query}
+
+Context (each block is a different prior incident)
+
+{context_str}
+Instructions:
+- Identify 0-3 lessons directly supported by the context.
+- For each lesson include: Venue, Date, 1–2 sentence summary, and an actionable takeaway.
+- Cite the supporting blocks inline as [DOCUMENT #1], [DOCUMENT #2], etc. Every claim must have at least one citation.
+- If the context is weak, say: "I don't have a strong match in prior post-mortems."
+
+If the question is a direct question and there is an answer in the documents, just try to answer it.
+If the question is not a direct question but just an event description, use the following template:
+1) Key Risks to Watch
+2) Likely Relevant Incidents"""
+            
+            # Add document links
+            if context_docs:
+                prompt += "\n"
+                for doc in context_docs:
+                    prompt += f"\n- /customgpt_documents/download_file.php?id={doc['document_id']}"
+            
+        connection.close()
+        
+        return PromptGenerationResponse(
+            prompt=prompt,
+            context_documents=context_docs
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating prompt: {str(e)}"
+        )
 
 
 def main():

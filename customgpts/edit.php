@@ -52,8 +52,11 @@ header_html('Edit Custom GPT');
         <a href="#" onclick="event.preventDefault(); openModal('chunkConfigModal'); toggleActionsMenu();" style="display:block;padding:12px 16px;text-decoration:none;color:#333;border-bottom:1px solid #eee;">
           Generate Chunks from Files
         </a>
-        <a href="/customgpts/generate_embeddings_eval.php?id=<?= $id ?>" style="display:block;padding:12px 16px;text-decoration:none;color:#333;">
+        <a href="#" onclick="event.preventDefault(); openModal('embeddingsInfoModal'); toggleActionsMenu();" style="display:block;padding:12px 16px;text-decoration:none;color:#333;border-bottom:1px solid #eee;">
           Generate Vector Embeddings
+        </a>
+        <a href="/customgpts/query.php?id=<?= $id ?>" style="display:block;padding:12px 16px;text-decoration:none;color:#333;">
+          Test Retrieval
         </a>
       </div>
     </div>
@@ -164,6 +167,9 @@ header_html('Edit Custom GPT');
 <?php
 // Render the chunk configuration modal
 echo Modal::chunkConfigModal($id);
+
+// Render the embeddings information modal
+echo Modal::embeddingsInfoModal($id);
 ?>
 
 <script>
