@@ -125,7 +125,7 @@ def insert_chunks(cursor, document_id, chunks):
         )
 
 
-def process_document(cursor, document_id, file_id, log_file):
+def process_document(cursor, document_id, file_id, log_file, chunk_size=1000, chunk_overlap=200):
     """Process a single document and generate chunks."""
     # Get file data
     cursor.execute(
@@ -152,8 +152,8 @@ def process_document(cursor, document_id, file_id, log_file):
         
         # Split text into chunks using LangChain
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
             length_function=len,
             separators=["\n\n", "\n", ". ", " ", ""]
         )
@@ -174,18 +174,22 @@ def process_document(cursor, document_id, file_id, log_file):
 def main():
     """Main execution function."""
     if len(sys.argv) < 3:
-        print("Usage: python generate_chunks.py <customgpt_id> <log_file>")
+        print("Usage: python generate_chunks.py <customgpt_id> <log_file> [chunk_size] [chunk_overlap]")
         sys.exit(1)
     
     customgpt_id = int(sys.argv[1])
     log_file = sys.argv[2]
+    chunk_size = int(sys.argv[3]) if len(sys.argv) > 3 else 1000
+    chunk_overlap = int(sys.argv[4]) if len(sys.argv) > 4 else 200
     
     # Initialize log file
     with open(log_file, 'w') as f:
         f.write(f"Chunk Generation Log - CustomGPT ID: {customgpt_id}\n")
+        f.write(f"Chunk Size: {chunk_size}, Overlap: {chunk_overlap}\n")
         f.write("=" * 60 + "\n\n")
     
     log(log_file, f"Starting chunk generation for CustomGPT ID: {customgpt_id}")
+    log(log_file, f"Configuration: chunk_size={chunk_size}, chunk_overlap={chunk_overlap}")
     
     try:
         # Connect to database
@@ -211,11 +215,11 @@ def main():
             log(log_file, f"Found {len(documents)} document(s) to process")
             log(log_file, "")
             
-            # Process each document
+            # Process each document with custom chunk configuration
             success_count = 0
             for idx, doc in enumerate(documents, 1):
                 log(log_file, f"Document {idx}/{len(documents)}:")
-                if process_document(cursor, doc['id'], doc['file_id'], log_file):
+                if process_document(cursor, doc['id'], doc['file_id'], log_file, chunk_size, chunk_overlap):
                     success_count += 1
                 log(log_file, "")
             

@@ -20,14 +20,20 @@ if (!$gpt) {
     exit;
 }
 
-// Check if we have a valid session token
-if (!isset($_SESSION['chunk_generation_token']) || !isset($_SESSION['chunk_generation_customgpt_id'])) {
+// Check if we have a valid session (either job_id for FastAPI or token for fallback)
+$hasJobId = isset($_SESSION['chunk_generation_job_id']) && isset($_SESSION['chunk_generation_customgpt_id']);
+$hasToken = isset($_SESSION['chunk_generation_token']) && isset($_SESSION['chunk_generation_customgpt_id']);
+
+if (!$hasJobId && !$hasToken) {
     // No active chunk generation, redirect to start it
     header('Location: /customgpts/generate_chunks_eval.php?id=' . $id);
     exit;
 }
 
-$token = $_SESSION['chunk_generation_token'];
+// Determine which tracking method to use
+$usingFastAPI = $hasJobId;
+$jobId = $hasJobId ? $_SESSION['chunk_generation_job_id'] : null;
+$token = $hasToken ? $_SESSION['chunk_generation_token'] : null;
 $sessionCustomGptId = $_SESSION['chunk_generation_customgpt_id'];
 
 // Verify the session CustomGPT ID matches the requested ID

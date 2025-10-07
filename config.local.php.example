@@ -40,3 +40,17 @@ define('PYTHON_PATH', 'python3');
 // OpenAI API configuration for vector embeddings
 define('OPENAI_API_KEY', ''); // Your OpenAI API key
 define('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small'); // Embedding model to use
+
+// FastAPI Service Configuration
+define('FASTAPI_HOST', 'localhost');
+define('FASTAPI_PORT', 8001);  // Port for the FastAPI processing service
+define('FASTAPI_MAX_CONCURRENT_JOBS', 2);  // Maximum concurrent jobs (default: 2)
+
+// Chunk Generation Configuration
+define('CHUNK_SIZE_DEFAULT', 1000);  // Default chunk size in characters
+define('CHUNK_SIZE_MIN', 100);       // Minimum chunk size
+define('CHUNK_SIZE_MAX', 5000);      // Maximum chunk size
+define('CHUNK_OVERLAP_DEFAULT', 200); // Default overlap in characters
+define('CHUNK_OVERLAP_MIN', 0);       // Minimum overlap
+define('CHUNK_OVERLAP_MAX', 1000);    // Maximum overlap
+define('CHUNK_SEPARATORS', "\n\n|\n|. | |");  // Pipe-separated list of separators

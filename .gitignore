@@ -7,3 +7,5 @@ config.local.php
 *.sw*
 /cache/
 /logs/
+/scripts/venv/*
+/scripts/__pycache__/*

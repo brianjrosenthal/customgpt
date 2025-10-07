@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../partials.php';
 require_once __DIR__ . '/../lib/CustomGPTManagement.php';
 require_once __DIR__ . '/../lib/CustomGPTDocumentManagement.php';
+require_once __DIR__ . '/../lib/Modal.php';
 Application::init();
 require_admin();
 
@@ -48,7 +49,7 @@ header_html('Edit Custom GPT');
         Actions ▼
       </button>
       <div id="actionsMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:white;border:1px solid #ccc;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);min-width:200px;z-index:1000;">
-        <a href="/customgpts/generate_chunks_eval.php?id=<?= $id ?>" style="display:block;padding:12px 16px;text-decoration:none;color:#333;border-bottom:1px solid #eee;">
+        <a href="#" onclick="event.preventDefault(); openModal('chunkConfigModal'); toggleActionsMenu();" style="display:block;padding:12px 16px;text-decoration:none;color:#333;border-bottom:1px solid #eee;">
           Generate Chunks from Files
         </a>
         <a href="/customgpts/generate_embeddings_eval.php?id=<?= $id ?>" style="display:block;padding:12px 16px;text-decoration:none;color:#333;">
@@ -159,6 +160,11 @@ header_html('Edit Custom GPT');
     </form>
   </div>
 </div>
+
+<?php
+// Render the chunk configuration modal
+echo Modal::chunkConfigModal($id);
+?>
 
 <script>
 function toggleActionsMenu() {

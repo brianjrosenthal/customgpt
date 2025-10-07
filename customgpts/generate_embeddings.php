@@ -18,10 +18,14 @@ if (!$gpt) {
     exit;
 }
 
-// Check if there's an active generation session
-$hasSession = isset($_SESSION['embedding_generation_token']) && 
-              isset($_SESSION['embedding_generation_customgpt_id']) &&
-              $_SESSION['embedding_generation_customgpt_id'] === $id;
+// Check if there's an active generation session (either job_id for FastAPI or token for fallback)
+$hasJobId = isset($_SESSION['embedding_generation_job_id']) && 
+            isset($_SESSION['embedding_generation_customgpt_id']) &&
+            $_SESSION['embedding_generation_customgpt_id'] === $id;
+$hasToken = isset($_SESSION['embedding_generation_token']) && 
+            isset($_SESSION['embedding_generation_customgpt_id']) &&
+            $_SESSION['embedding_generation_customgpt_id'] === $id;
+$hasSession = $hasJobId || $hasToken;
 
 header_html('Generate Vector Embeddings - ' . h($gpt['name']));
 ?>
