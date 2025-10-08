@@ -240,6 +240,27 @@ header_html('Generated Prompt - ' . htmlspecialchars($gpt['name']));
         <a class="button" href="/customgpts/query.php?id=<?= $customgptId ?>">New Query</a>
         <a class="button" href="/customgpts/edit.php?id=<?= $customgptId ?>">Back to Custom GPT</a>
         <button class="button primary copy-button" onclick="copyPrompt()">Copy Prompt to Clipboard</button>
+        <button class="button primary" id="queryChatGPTButton" onclick="queryChatGPT()">Query ChatGPT</button>
+    </div>
+    
+    <!-- ChatGPT Response Section (initially hidden) -->
+    <div id="chatgptResponseSection" style="display:none; margin-top: 24px;">
+        <div class="prompt-section">
+            <h3>ChatGPT Response</h3>
+            <div id="chatgptResponseText" class="prompt-text"></div>
+            <div id="chatgptMetadata" style="margin-top: 12px; font-size: 12px; color: #666;"></div>
+        </div>
+        <div style="text-align: center; margin-top: 16px;">
+            <button class="button primary" onclick="copyResponse()">Copy Response to Clipboard</button>
+        </div>
+    </div>
+    
+    <!-- Loading indicator -->
+    <div id="loadingIndicator" style="display:none; text-align: center; margin-top: 24px;">
+        <div style="display: inline-block; padding: 20px; background: #f8f9fa; border-radius: 6px;">
+            <div style="font-size: 16px; margin-bottom: 12px;">Querying ChatGPT...</div>
+            <div style="font-size: 14px; color: #666;">This may take a moment</div>
+        </div>
     </div>
 </div>
 
@@ -258,6 +279,78 @@ function copyPrompt() {
     }).catch(err => {
         alert('Failed to copy prompt to clipboard');
         console.error('Copy failed:', err);
+    });
+}
+
+function copyResponse() {
+    const responseText = document.getElementById('chatgptResponseText').textContent;
+    navigator.clipboard.writeText(responseText).then(() => {
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Copied!';
+        button.style.backgroundColor = '#28a745';
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.style.backgroundColor = '';
+        }, 2000);
+    }).catch(err => {
+        alert('Failed to copy response to clipboard');
+        console.error('Copy failed:', err);
+    });
+}
+
+function queryChatGPT() {
+    const button = document.getElementById('queryChatGPTButton');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const responseSection = document.getElementById('chatgptResponseSection');
+    const promptText = document.getElementById('promptText').textContent;
+    
+    // Disable button and show loading
+    button.disabled = true;
+    button.textContent = 'Querying...';
+    loadingIndicator.style.display = 'block';
+    responseSection.style.display = 'none';
+    
+    // Prepare request with CSRF token
+    const payload = {
+        customgpt_id: <?= $customgptId ?>,
+        prompt: promptText,
+        csrf: '<?= csrf_token() ?>'
+    };
+    
+    // Make API call to PHP endpoint
+    fetch('/customgpts/query_execute_prompt.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to query ChatGPT');
+        }
+        
+        // Display response
+        document.getElementById('chatgptResponseText').textContent = data.response;
+        document.getElementById('chatgptMetadata').innerHTML = 
+            `Model: ${data.model} | Tokens: ${data.tokens_used || 'N/A'}`;
+        responseSection.style.display = 'block';
+        
+        // Re-enable button
+        button.disabled = false;
+        button.textContent = 'Query ChatGPT';
+        loadingIndicator.style.display = 'none';
+    })
+    .catch(error => {
+        alert('Error: ' + error.message);
+        console.error('ChatGPT query failed:', error);
+        
+        // Re-enable button
+        button.disabled = false;
+        button.textContent = 'Query ChatGPT';
+        loadingIndicator.style.display = 'none';
     });
 }
 </script>

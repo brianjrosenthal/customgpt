@@ -19,6 +19,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import uvicorn
 
+# Import heavy libraries at startup to avoid blocking on first request
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from sentence_transformers import CrossEncoder
+from openai import OpenAI
+import json
+import numpy as np
+
 # Import our existing processing modules
 from generate_chunks import (
     get_db_connection as chunks_get_db_connection,
@@ -68,6 +76,37 @@ app = FastAPI(
 jobs: Dict[str, dict] = {}
 job_logs: Dict[str, List[str]] = {}
 active_jobs_semaphore = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
+
+# Global pre-loaded models (Phase 2: Pre-load at startup)
+cross_encoder_model = None
+openai_embeddings = None
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Pre-load heavy models at startup to avoid blocking on first request."""
+    global cross_encoder_model, openai_embeddings
+    
+    print("Loading models at startup...")
+    
+    # Load cross-encoder model
+    print("  Loading cross-encoder model...")
+    cross_encoder_model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+    print("  ✓ Cross-encoder model loaded")
+    
+    # Load OpenAI embeddings
+    try:
+        print("  Loading OpenAI embeddings...")
+        api_key, embed_model = get_openai_config()
+        openai_embeddings = OpenAIEmbeddings(
+            openai_api_key=api_key,
+            model=embed_model
+        )
+        print(f"  ✓ OpenAI embeddings loaded ({embed_model})")
+    except Exception as e:
+        print(f"  ⚠ Warning: Could not load OpenAI embeddings: {e}")
+    
+    print("✓ All models loaded successfully")
 
 
 class JobStatus(BaseModel):
@@ -123,6 +162,33 @@ class PromptGenerationResponse(BaseModel):
     """Prompt generation response model."""
     prompt: str
     context_documents: List[dict]
+
+
+class ChatGPTQueryRequest(BaseModel):
+    """ChatGPT query request model."""
+    prompt: str
+
+
+class ChatGPTQueryResponse(BaseModel):
+    """ChatGPT query response model."""
+    response: str
+    model: str
+    tokens_used: Optional[int] = None
+
+
+class QueryExecutionRequest(BaseModel):
+    """Full query execution request model."""
+    query: str
+    top_k: int = 10
+
+
+class QueryJobStatus(BaseModel):
+    """Query job status response model."""
+    job_id: str
+    status: str  # 'queued', 'retrieving', 'reranking', 'generating_prompt', 'querying_chatgpt', 'completed', 'failed'
+    status_message: str
+    result: Optional[str] = None
+    error: Optional[str] = None
 
 
 class JobCreateResponse(BaseModel):
@@ -794,6 +860,11 @@ I don't have a strong match in prior post-mortems for this query."""
                 context_str += doc['text']
                 context_str += "\n-----\n\n"
             
+            # Build document links map
+            doc_links_map = ""
+            for idx, doc in enumerate(context_docs, 1):
+                doc_links_map += f"Document #{idx}: /customgpt_documents/download_file.php?id={doc['document_id']}\n"
+            
             # Build the prompt
             prompt = f"""You are an operations advisor, offering lessons from previous events to inform the event or question in the prompt. Use ONLY the post-mortem excerpts provided.
 
@@ -806,19 +877,15 @@ Context (each block is a different prior incident)
 Instructions:
 - Identify 0-3 lessons directly supported by the context.
 - For each lesson include: Venue, Date, 1–2 sentence summary, and an actionable takeaway.
-- Cite the supporting blocks inline as [DOCUMENT #1], [DOCUMENT #2], etc. Every claim must have at least one citation.
+- Cite the supporting blocks inline with links. Here is the map of documents to links:
+
+{doc_links_map}
 - If the context is weak, say: "I don't have a strong match in prior post-mortems."
 
 If the question is a direct question and there is an answer in the documents, just try to answer it.
 If the question is not a direct question but just an event description, use the following template:
 1) Key Risks to Watch
 2) Likely Relevant Incidents"""
-            
-            # Add document links
-            if context_docs:
-                prompt += "\n"
-                for doc in context_docs:
-                    prompt += f"\n- /customgpt_documents/download_file.php?id={doc['document_id']}"
             
         connection.close()
         
@@ -832,6 +899,153 @@ If the question is not a direct question but just an event description, use the 
             status_code=500,
             detail=f"Error generating prompt: {str(e)}"
         )
+
+
+@app.post("/api/v1/query-chatgpt/{customgpt_id}", response_model=ChatGPTQueryResponse)
+async def query_chatgpt(customgpt_id: int, request: ChatGPTQueryRequest):
+    """Query ChatGPT with the generated prompt."""
+    try:
+        # Import OpenAI
+        from openai import OpenAI
+        
+        # Get OpenAI configuration
+        api_key, _ = get_openai_config()
+        
+        # Initialize OpenAI client
+        client = OpenAI(api_key=api_key)
+        
+        # Use GPT-4 Turbo (latest available model)
+        model = "gpt-4-turbo-preview"
+        
+        # Make API call to OpenAI
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a helpful operations advisor with expertise in event management and post-mortem analysis."},
+                {"role": "user", "content": request.prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000
+        )
+        
+        # Extract response
+        assistant_message = response.choices[0].message.content
+        tokens_used = response.usage.total_tokens if response.usage else None
+        
+        return ChatGPTQueryResponse(
+            response=assistant_message,
+            model=model,
+            tokens_used=tokens_used
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error querying ChatGPT: {str(e)}"
+        )
+
+
+# Query job storage (separate from chunk/embedding jobs)
+query_jobs: Dict[str, dict] = {}
+
+
+async def process_query_execution(job_id: str, customgpt_id: int, query: str, top_k: int = 10):
+    """Execute full query pipeline: retrieval -> reranking -> prompt -> chatgpt."""
+    try:
+        # DIAGNOSTIC: Artificial delay to test async behavior
+        query_jobs[job_id]['status'] = 'testing'
+        query_jobs[job_id]['status_message'] = 'Artificial delay (20 seconds)...'
+        print(f"[DEBUG] Job {job_id}: Starting 20-second artificial delay")
+        await asyncio.sleep(20)
+        print(f"[DEBUG] Job {job_id}: Artificial delay complete")
+        
+        query_jobs[job_id]['status'] = 'retrieving'
+        query_jobs[job_id]['status_message'] = 'Running retrieval algorithm...'
+        print(f"[DEBUG] Job {job_id}: Starting retrieval")
+        
+        # Step 1: Retrieval
+        retrieval_request = RetrievalRequest(query=query, top_k=top_k)
+        retrieval_result = await retrieve_chunks(customgpt_id, retrieval_request)
+        
+        query_jobs[job_id]['status'] = 'reranking'
+        query_jobs[job_id]['status_message'] = 'Running re-ranking algorithm...'
+        
+        # Step 2: Re-ranking
+        rerank_request = RerankRequest(query=query, chunks=retrieval_result.chunks)
+        rerank_result = await rerank_chunks(customgpt_id, rerank_request)
+        
+        query_jobs[job_id]['status'] = 'generating_prompt'
+        query_jobs[job_id]['status_message'] = 'Generating context-rich prompt...'
+        
+        # Step 3: Prompt Generation
+        prompt_request = PromptGenerationRequest(query=query, reranked_chunks=rerank_result.reranked_chunks)
+        prompt_result = await generate_prompt(customgpt_id, prompt_request)
+        
+        query_jobs[job_id]['status'] = 'querying_chatgpt'
+        query_jobs[job_id]['status_message'] = 'Querying ChatGPT...'
+        
+        # Step 4: ChatGPT Query
+        chatgpt_request = ChatGPTQueryRequest(prompt=prompt_result.prompt)
+        chatgpt_result = await query_chatgpt(customgpt_id, chatgpt_request)
+        
+        # Success!
+        query_jobs[job_id]['status'] = 'completed'
+        query_jobs[job_id]['status_message'] = 'Query execution completed successfully'
+        query_jobs[job_id]['result'] = chatgpt_result.response
+        query_jobs[job_id]['completed_at'] = datetime.now().isoformat()
+        
+    except Exception as e:
+        query_jobs[job_id]['status'] = 'failed'
+        query_jobs[job_id]['status_message'] = 'Query execution failed'
+        query_jobs[job_id]['error'] = str(e)
+        query_jobs[job_id]['completed_at'] = datetime.now().isoformat()
+
+
+@app.post("/api/v1/execute-query/{customgpt_id}")
+async def execute_query(customgpt_id: int, request: QueryExecutionRequest):
+    """Start full query execution pipeline."""
+    try:
+        print(f"[DEBUG] execute_query endpoint called for customgpt_id={customgpt_id}")
+        job_id = str(uuid.uuid4())
+        print(f"[DEBUG] Generated job_id: {job_id}")
+        
+        # Create job record FIRST before any other work
+        query_jobs[job_id] = {
+            'job_id': job_id,
+            'status': 'queued',
+            'status_message': 'Query execution starting...',
+            'customgpt_id': customgpt_id,
+            'query': request.query,
+            'created_at': datetime.now().isoformat(),
+            'result': None,
+            'error': None
+        }
+        print(f"[DEBUG] Job record created for {job_id}")
+        
+        # Start background task (non-blocking)
+        print(f"[DEBUG] Creating background task for {job_id}")
+        asyncio.create_task(process_query_execution(job_id, customgpt_id, request.query, request.top_k))
+        print(f"[DEBUG] Background task created, returning response for {job_id}")
+        
+        # Return immediately
+        return {
+            'job_id': job_id,
+            'status': 'queued',
+            'message': 'Query execution started'
+        }
+    except Exception as e:
+        print(f"[DEBUG] Exception in execute_query: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start query execution: {str(e)}")
+
+
+@app.get("/api/v1/query-jobs/{job_id}/status", response_model=QueryJobStatus)
+async def get_query_job_status(job_id: str):
+    """Get query job status."""
+    if job_id not in query_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job = query_jobs[job_id]
+    return QueryJobStatus(**job)
 
 
 def main():
