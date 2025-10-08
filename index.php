@@ -9,21 +9,17 @@ $announcement = Settings::announcement();
 $siteTitle = Settings::siteTitle();
 
 // Get CustomGPTs with embeddings for current user
-$connection = Application::db();
 $userId = $me['id'];
 
-$query = "SELECT c.id, c.name, c.description 
-          FROM customgpts c
-          INNER JOIN customgpt_vector_embeddings v ON c.id = v.customgpt_id
-          WHERE c.created_by = ?
-          ORDER BY c.created_at DESC";
+$sql = "SELECT c.id, c.name, c.description 
+        FROM customgpts c
+        INNER JOIN customgpt_vector_embeddings v ON c.id = v.customgpt_id
+        WHERE c.created_by = ?
+        ORDER BY c.created_at DESC";
 
-$stmt = $connection->prepare($query);
-$stmt->bind_param('i', $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$customgpts = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+$stmt = pdo()->prepare($sql);
+$stmt->execute([$userId]);
+$customgpts = $stmt->fetchAll();
 
 $hasCustomGPTs = count($customgpts) > 0;
 $hasSingleGPT = count($customgpts) === 1;
