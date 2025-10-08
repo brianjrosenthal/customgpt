@@ -700,20 +700,15 @@ async def rerank_chunks(customgpt_id: int, request: RerankRequest):
 async def generate_prompt(customgpt_id: int, request: PromptGenerationRequest):
     """Generate a context-rich prompt from reranked chunks."""
     try:
-        MIN_PERCENT_SCORE = 40.0
-        
         # Connect to database
         connection = embeddings_get_db_connection()
         
         with connection.cursor() as cursor:
-            # Filter chunks by minimum score and take top 3
-            qualifying_chunks = [
-                chunk for chunk in request.reranked_chunks
-                if (chunk['cross_encoder_score'] * 100) >= MIN_PERCENT_SCORE
-            ][:3]
+            # Always take top 3 chunks regardless of score
+            qualifying_chunks = request.reranked_chunks[:3]
             
             if not qualifying_chunks:
-                # No chunks meet the minimum threshold
+                # No chunks available at all
                 prompt = f"""You are an operations advisor, offering lessons from previous events to inform the event or question in the prompt. Use ONLY the post-mortem excerpts provided.
 
 New event / question:
@@ -721,7 +716,7 @@ New event / question:
 
 Context (each block is a different prior incident)
 
-No qualifying documents found (all documents scored below {MIN_PERCENT_SCORE}% relevance).
+No documents found in the knowledge base.
 
 Instructions:
 I don't have a strong match in prior post-mortems for this query."""
@@ -735,12 +730,17 @@ I don't have a strong match in prior post-mortems for this query."""
             context_docs = []
             seen_documents = set()
             
-            for chunk in qualifying_chunks:
-                chunk_id = chunk['chunk_id']
-                document_id = chunk['document_id']
+            print(f"[DEBUG] Processing {len(qualifying_chunks)} qualifying chunks")
+            
+            for idx, chunk in enumerate(qualifying_chunks):
+                chunk_id = chunk.get('chunk_id')
+                document_id = chunk.get('document_id')
+                
+                print(f"[DEBUG] Chunk {idx+1}: chunk_id={chunk_id}, document_id={document_id}")
                 
                 # Skip if we've already processed this document
                 if document_id in seen_documents:
+                    print(f"[DEBUG] Skipping duplicate document_id={document_id}")
                     continue
                 
                 seen_documents.add(document_id)
@@ -755,7 +755,10 @@ I don't have a strong match in prior post-mortems for this query."""
                 chunk_row = cursor.fetchone()
                 
                 if not chunk_row:
+                    print(f"[DEBUG] No chunk found for chunk_id={chunk_id}")
                     continue
+                
+                print(f"[DEBUG] Found chunk: customgpt_document_id={chunk_row['customgpt_document_id']}, sort_order={chunk_row['sort_order']}")
                 
                 customgpt_document_id = chunk_row['customgpt_document_id']
                 target_sort_order = chunk_row['sort_order']
@@ -790,50 +793,13 @@ I don't have a strong match in prior post-mortems for this query."""
                            ORDER BY sort_order""",
                         (customgpt_document_id,)
                     )
+                    chunk_texts = cursor.fetchall()
                 else:
-                    # Fetch: first chunk + 5 before target + target + 1 after
-                    # Get first chunk
-                    cursor.execute(
-                        """SELECT text
-                           FROM customgpt_document_chunks
-                           WHERE customgpt_document_id = %s
-                           ORDER BY sort_order
-                           LIMIT 1""",
-                        (customgpt_document_id,)
-                    )
-                    first_chunk = cursor.fetchall()
-                    
-                    # Get contextual chunks around target
+                    # Fetch: first chunk + contextual chunks around target
                     start_order = max(0, target_sort_order - 5)
                     end_order = target_sort_order + 1
                     
-                    cursor.execute(
-                        """SELECT text
-                           FROM customgpt_document_chunks
-                           WHERE customgpt_document_id = %s
-                           AND sort_order BETWEEN %s AND %s
-                           ORDER BY sort_order""",
-                        (customgpt_document_id, start_order, end_order)
-                    )
-                    contextual_chunks = cursor.fetchall()
-                    
-                    # Combine, avoiding duplicates if first chunk is in range
-                    all_chunks = first_chunk
-                    if start_order > 0:
-                        all_chunks.extend(contextual_chunks)
-                    else:
-                        # First chunk already included
-                        all_chunks.extend(contextual_chunks[1:])
-                    
-                    cursor.execute(
-                        """SELECT 1 FROM 
-                           (SELECT text FROM customgpt_document_chunks
-                            WHERE customgpt_document_id = %s
-                            ORDER BY sort_order LIMIT 1) as first
-                           WHERE 1=1""",
-                        (customgpt_document_id,)
-                    )
-                    # Re-fetch with proper combination
+                    # Fetch first chunk + contextual chunks in one query
                     cursor.execute(
                         """SELECT text
                            FROM customgpt_document_chunks
@@ -842,8 +808,7 @@ I don't have a strong match in prior post-mortems for this query."""
                            ORDER BY sort_order""",
                         (customgpt_document_id, start_order, end_order)
                     )
-                
-                chunk_texts = cursor.fetchall()
+                    chunk_texts = cursor.fetchall()
                 document_text = '\n\n'.join([row['text'] for row in chunk_texts])
                 
                 context_docs.append({
@@ -874,16 +839,21 @@ New event / question:
 Context (each block is a different prior incident)
 
 {context_str}
-Instructions:
-- Identify 0-3 lessons directly supported by the context.
-- For each lesson include: Venue, Date, 1–2 sentence summary, and an actionable takeaway.
-- Cite the supporting blocks inline with links. Here is the map of documents to links:
+
+CRITICAL INSTRUCTIONS:
+- You MUST use ONLY information that is directly present in the provided context documents above
+- If the provided documents do not contain relevant information for this specific query, you MUST respond with EXACTLY this text: "I don't have a strong match in prior post-mortems."
+- DO NOT provide general advice, common sense suggestions, or information not in the documents
+- DO NOT use phrases like "based on common themes" or "general advice" or "best practices"
+- If you find relevant information in the documents:
+  - Identify 0-3 lessons directly supported by the context
+  - For each lesson include: Venue, Date, 1–2 sentence summary, and an actionable takeaway
+  - Cite the supporting blocks inline with links using this map:
 
 {doc_links_map}
-- If the context is weak, say: "I don't have a strong match in prior post-mortems."
 
-If the question is a direct question and there is an answer in the documents, just try to answer it.
-If the question is not a direct question but just an event description, use the following template:
+If the question is a direct question and there is an answer in the documents, answer it using only document information.
+If the question is not a direct question but an event description, and you have relevant documents, use this template:
 1) Key Risks to Watch
 2) Likely Relevant Incidents"""
             
@@ -921,7 +891,7 @@ async def query_chatgpt(customgpt_id: int, request: ChatGPTQueryRequest):
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a helpful operations advisor with expertise in event management and post-mortem analysis."},
+                {"role": "system", "content": "You are a strict document-based operations advisor. You ONLY provide information that is directly present in the documents provided to you. If the documents do not contain relevant information, you say EXACTLY: 'I don't have a strong match in prior post-mortems.' and nothing else. You NEVER provide general advice, common knowledge, or suggestions not found in the documents."},
                 {"role": "user", "content": request.prompt}
             ],
             temperature=0.7,
@@ -951,14 +921,7 @@ query_jobs: Dict[str, dict] = {}
 
 async def process_query_execution(job_id: str, customgpt_id: int, query: str, top_k: int = 10):
     """Execute full query pipeline: retrieval -> reranking -> prompt -> chatgpt."""
-    try:
-        # DIAGNOSTIC: Artificial delay to test async behavior
-        query_jobs[job_id]['status'] = 'testing'
-        query_jobs[job_id]['status_message'] = 'Artificial delay (20 seconds)...'
-        print(f"[DEBUG] Job {job_id}: Starting 20-second artificial delay")
-        await asyncio.sleep(20)
-        print(f"[DEBUG] Job {job_id}: Artificial delay complete")
-        
+    try:        
         query_jobs[job_id]['status'] = 'retrieving'
         query_jobs[job_id]['status_message'] = 'Running retrieval algorithm...'
         print(f"[DEBUG] Job {job_id}: Starting retrieval")

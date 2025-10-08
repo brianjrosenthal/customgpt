@@ -235,6 +235,7 @@ header_html('Home');
         
         <div class="query-actions">
             <button type="button" class="button primary" id="goButton" onclick="executeQuery()">Go</button>
+            <a href="/customgpts/edit.php?id=<?= $gptId ?>" class="button">Add Documents</a>
         </div>
         
         <!-- Status Container -->
